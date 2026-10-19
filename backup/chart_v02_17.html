@@ -1,0 +1,1610 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>BB · VWAP · EMA · RSI · MACD · v02.10</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-chart-financial@0.1.1/dist/chartjs-chart-financial.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/luxon/3.4.3/luxon.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1.3.1/dist/chartjs-adapter-luxon.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@1.2.1/dist/chartjs-plugin-zoom.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0b0e11;--surface:#131820;--border:#1e2530;--muted:#3a4455;
+  --text:#e2e8f0;--soft:#8a9ab5;--accent:#3b82f6;
+  --up:#22c55e;--down:#ef4444;--bb2:#60a5fa;--bb3:#c084fc;--bbmid:#94a3b8;
+  --vwap:#fbbf24;--ema8:#06b6d4;--ema21:#f97316;--ema50:#ec4899;
+  --rsi:#f59e0b;--macdl:#60a5fa;--macds:#f97316;
+  --font-ui:'IBM Plex Sans',sans-serif;--font-mono:'IBM Plex Mono',monospace;
+}
+body{background:var(--bg);color:var(--text);font-family:var(--font-ui);min-height:100vh;}
+
+/* ── Header ── */
+header{display:flex;align-items:center;justify-content:space-between;padding:12px 24px;border-bottom:1px solid var(--border);background:var(--surface);}
+.logo{font-family:var(--font-mono);font-size:13px;font-weight:500;color:var(--accent);letter-spacing:.08em;}
+.header-right{display:flex;align-items:center;gap:10px;}
+.header-tag{font-size:11px;color:var(--soft);text-transform:uppercase;letter-spacing:.06em;}
+#exportbtn,#savebtn,#loadbtn{font-family:var(--font-mono);font-size:11px;background:transparent;color:var(--soft);border:1px solid var(--border);border-radius:6px;padding:5px 12px;cursor:pointer;transition:all .15s;letter-spacing:.04em;}
+#exportbtn:hover{border-color:var(--accent);color:var(--accent);}
+#savebtn:hover{border-color:var(--up);color:var(--up);}
+#loadbtn{border-style:dashed;}
+#loadbtn:hover{border-color:var(--vwap);color:var(--vwap);}
+#fileinput{display:none;}
+.file-loaded-pill{font-family:var(--font-mono);font-size:10px;padding:3px 9px;border-radius:99px;background:rgba(34,197,94,.12);color:var(--up);border:1px solid rgba(34,197,94,.3);letter-spacing:.04em;white-space:nowrap;}
+
+/* ── Controls ── */
+.controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:9px 24px;background:var(--surface);border-bottom:1px solid var(--border);}
+input,select,button{font-family:var(--font-ui);font-size:13px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 10px;outline:none;transition:border-color .15s;}
+input:focus,select:focus{border-color:var(--accent);}
+select{cursor:pointer;appearance:none;-webkit-appearance:none;padding-right:22px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%238a9ab5' d='M0 0l5 6 5-6z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 7px center;}
+#apikey{width:250px;font-family:var(--font-mono);font-size:12px;}
+#ticker{width:72px;text-transform:uppercase;font-family:var(--font-mono);font-weight:500;letter-spacing:.06em;}
+#datefrom,#dateto{width:138px;color-scheme:dark;}
+.date-sep{font-size:11px;color:var(--muted);}
+#timeframe{width:72px;font-family:var(--font-mono);font-size:12px;}
+.sep{width:1px;height:22px;background:var(--border);margin:0 2px;flex-shrink:0;}
+.ctrl-group{display:flex;align-items:center;gap:7px;padding:5px 10px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:6px;}
+.ctrl-group label{font-size:10px;color:var(--soft);text-transform:uppercase;letter-spacing:.05em;white-space:nowrap;}
+.ctrl-group .cv{font-family:var(--font-mono);font-size:12px;min-width:28px;}
+input[type=range]{width:72px;height:4px;padding:0;border:none;accent-color:var(--accent);cursor:pointer;background:transparent;}
+#fetchbtn{background:var(--accent);color:#fff;border:none;font-weight:500;padding:6px 16px;cursor:pointer;border-radius:6px;transition:opacity .15s;}
+#fetchbtn:hover{opacity:.88;}
+#fetchbtn:disabled{opacity:.4;cursor:default;}
+
+/* ── Indicator toggle bar ── */
+.ind-bar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:7px 24px;background:var(--bg);border-bottom:1px solid var(--border);}
+.ind-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;white-space:nowrap;padding-right:2px;flex-shrink:0;}
+.ind-toggles{display:flex;align-items:center;gap:5px;flex-wrap:wrap;}
+.ind-tog{display:inline-flex;align-items:center;gap:5px;padding:3px 10px 3px 8px;border-radius:99px;border:1px solid var(--border);cursor:pointer;font-size:11px;font-family:var(--font-mono);color:var(--soft);background:rgba(255,255,255,.02);transition:background .15s,color .15s,border-color .15s,opacity .15s;user-select:none;opacity:.45;}
+.ind-tog.on{opacity:1;}
+.ind-tog:hover{background:rgba(255,255,255,.05);}
+.ind-tog .td{width:5px;height:5px;border-radius:50%;background:currentColor;flex-shrink:0;}
+.ind-tog-all{font-family:var(--font-mono);font-size:10px;padding:3px 10px;border-radius:6px;border:1px solid var(--border);cursor:pointer;color:var(--soft);background:rgba(255,255,255,.02);transition:all .15s;user-select:none;}
+.ind-tog-all:hover{background:rgba(255,255,255,.07);color:var(--text);}
+.ind-spacer{flex:1;}
+
+/* ── Status bar ── */
+#statusbar{display:flex;align-items:center;gap:9px;padding:6px 24px;font-size:12px;font-family:var(--font-mono);color:var(--soft);border-bottom:1px solid var(--border);min-height:32px;}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--muted);flex-shrink:0;transition:background .3s;}
+.dot.live{background:var(--up);box-shadow:0 0 6px var(--up);animation:pulse 2s infinite;}
+.dot.err{background:var(--down);}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* ── Metrics ── */
+.metrics-wrap{display:grid;border-bottom:1px solid var(--border);background:var(--surface);}
+.metric{padding:8px 14px;border-right:1px solid var(--border);}
+.metric:last-child{border-right:none;}
+.mlabel{font-size:10px;font-family:var(--font-mono);color:var(--soft);text-transform:uppercase;letter-spacing:.08em;margin-bottom:2px;}
+.mval{font-family:var(--font-mono);font-size:15px;font-weight:500;color:var(--text);}
+.mval.up{color:var(--up)}.mval.down{color:var(--down)}
+.mval.blue{color:var(--bb2)}.mval.purple{color:var(--bb3)}
+.mval.gold{color:var(--vwap)}.mval.amber{color:var(--rsi)}
+.mval.cyan{color:var(--ema8)}
+
+/* ── Legend ── */
+.legend{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:7px 24px;font-size:11px;color:var(--soft);border-bottom:1px solid var(--border);}
+.legend span{display:flex;align-items:center;gap:5px;}
+.lsq{width:10px;height:10px;border-radius:2px;flex-shrink:0;}
+.ldash{width:18px;border-top:2px dashed;flex-shrink:0;}
+.lsolid{width:18px;border-top:2px solid;flex-shrink:0;}
+.ltri{width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;flex-shrink:0;}
+.ltri.up{border-bottom:9px solid}
+.ltri.dn{border-top:9px solid}
+
+/* ── Panels ── */
+.panel{margin:16px 24px 0;border:1px solid var(--border);border-radius:8px;overflow:hidden;transition:opacity .2s;}
+.panel.last{margin-bottom:28px;}
+.panel-header{display:flex;align-items:center;justify-content:space-between;padding:7px 14px;background:var(--surface);border-bottom:1px solid var(--border);font-size:11px;font-family:var(--font-mono);color:var(--soft);letter-spacing:.06em;text-transform:uppercase;}
+.pill{font-size:10px;padding:2px 8px;border-radius:99px;background:rgba(255,255,255,.05);color:var(--soft);}
+.reset-btn{font-size:10px;font-family:var(--font-mono);padding:2px 10px;border-radius:5px;background:rgba(255,255,255,.05);color:var(--soft);border:1px solid var(--border);cursor:pointer;transition:background .15s,color .15s;}
+.reset-btn:hover{background:var(--accent);color:#fff;border-color:var(--accent);}
+.chart-wrap{padding:10px 10px 8px;}
+.chart-wrap canvas{display:block;}
+
+/* ── Price overlay ── */
+.price-wrap{position:relative;}
+
+
+/* ── Zoom bar ── */
+.zoom-bar{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:7px 24px;background:var(--surface);border-bottom:1px solid var(--border);}
+.zoom-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;white-space:nowrap;flex-shrink:0;}
+#zfrom,#zto{width:90px;font-family:var(--font-mono);font-size:12px;padding:4px 8px;color-scheme:dark;}
+.zoom-sep{font-size:11px;color:var(--muted);}
+.zoom-preset{font-family:var(--font-mono);font-size:10px;padding:3px 10px;border-radius:6px;border:1px solid var(--border);cursor:pointer;color:var(--soft);background:rgba(255,255,255,.02);transition:all .15s;user-select:none;white-space:nowrap;}
+.zoom-preset:hover{background:rgba(255,255,255,.07);color:var(--text);}
+.zoom-preset.active{background:rgba(59,130,246,.18);border-color:var(--accent);color:var(--accent);}
+#zoombtn{background:var(--accent);color:#fff;border:none;font-family:var(--font-mono);font-size:11px;padding:4px 14px;cursor:pointer;border-radius:6px;transition:opacity .15s;letter-spacing:.04em;}
+#zoombtn:hover{opacity:.85;}
+#zoombtn:disabled{opacity:.3;cursor:default;}
+#zresetbtn{font-family:var(--font-mono);font-size:10px;padding:4px 11px;border-radius:6px;border:1px solid var(--border);cursor:pointer;color:var(--soft);background:rgba(255,255,255,.02);transition:all .15s;}
+#zresetbtn:hover{border-color:var(--down);color:var(--down);}
+
+/* ── Day nav bar ── */
+.day-bar{display:flex;align-items:center;gap:10px;padding:7px 24px;background:var(--bg);border-bottom:1px solid var(--border);}
+.day-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;white-space:nowrap;flex-shrink:0;}
+#day-display{font-family:var(--font-mono);font-size:13px;font-weight:500;color:var(--text);min-width:160px;text-align:center;}
+#day-sub{font-family:var(--font-mono);font-size:11px;color:var(--soft);}
+.view-toggle{display:flex;gap:4px;align-items:center;}
+.vt-btn{padding:3px 10px;border-radius:4px;border:1px solid var(--border);background:transparent;
+  color:var(--soft);font-size:11px;font-family:var(--font-mono);cursor:pointer;transition:all .15s;}
+.vt-btn:hover{border-color:var(--accent);color:var(--text);}
+.vt-btn.active{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600;}
+.day-btn{font-family:var(--font-mono);font-size:13px;padding:3px 14px;border-radius:6px;border:1px solid var(--border);cursor:pointer;color:var(--soft);background:rgba(255,255,255,.02);transition:all .15s;user-select:none;}
+.day-btn:hover{background:rgba(255,255,255,.08);color:var(--text);}
+.day-btn:disabled{opacity:.25;cursor:default;}
+#day-index{font-family:var(--font-mono);font-size:11px;color:var(--muted);}
+
+/* ── Maximize panel ── */
+.max-btn{font-size:11px;font-family:var(--font-mono);padding:2px 10px;border-radius:5px;
+  background:rgba(255,255,255,.05);color:var(--soft);border:1px solid var(--border);
+  cursor:pointer;transition:background .15s,color .15s,border-color .15s;user-select:none;}
+.max-btn:hover{background:rgba(59,130,246,.2);color:var(--accent);border-color:var(--accent);}
+body.panel-maximized .panel{display:none!important;}
+.restore-bar{display:none;align-items:center;gap:10px;padding:8px 18px;
+  background:var(--surface);border-bottom:1px solid var(--border);
+  font-family:var(--font-mono);font-size:12px;color:var(--soft);}
+body.panel-maximized .restore-bar{
+  display:flex;
+  position:fixed;top:0;left:0;right:0;z-index:1001;
+  border-bottom:1px solid var(--border);
+}
+body.panel-maximized .panel.maximized{
+  display:block!important;
+  position:fixed;top:41px;left:0;right:0;bottom:0;z-index:999;
+  margin:0;border-radius:0;border:none;
+  background:var(--bg);overflow:auto;
+}
+body.panel-maximized .panel.maximized .chart-wrap canvas{height:calc(100vh - 93px)!important;}
+.restore-bar button{font-family:var(--font-mono);font-size:11px;padding:3px 12px;
+  border-radius:5px;border:1px solid var(--border);cursor:pointer;
+  background:rgba(239,68,68,.12);color:#ef4444;border-color:rgba(239,68,68,.4);transition:all .15s;}
+.restore-bar button:hover{background:rgba(239,68,68,.25);}
+
+/* ── Empty state ── */
+#empty-state{height:280px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--soft);gap:10px;font-size:13px;}
+#empty-state svg{opacity:.2;}
+.hidden{display:none!important;}
+</style>
+</head>
+<body>
+
+<!-- ══ Header ══ -->
+<header>
+  <div class="logo">&#9632; BB &middot; VWAP &middot; EMA &middot; RSI &middot; MACD</div>
+  <div class="header-right">
+    <div class="header-tag">Polygon.io &middot; <span style="color:var(--accent)">v02.10</span></div>
+    <span id="file-loaded-label"></span>
+    <button id="loadbtn" onclick="document.getElementById('fileinput').click()" title="Load saved .json">&#8593; Load data</button>
+    <button id="savebtn" onclick="saveData()" title="Save bars to .json">&#8595; Save data</button>
+    <button id="exportbtn" onclick="exportCharts()">&#8595; Export PNG</button>
+    <input type="file" id="fileinput" accept=".json" onchange="loadDataFile(event)"/>
+  </div>
+</header>
+
+<!-- ══ Controls ══ -->
+<div class="controls">
+  <input id="apikey" type="password" placeholder="Polygon.io API key" value="dNu4op8vEzMu4FjBlfuHnr0gEZV0hh0W"/>
+  <input id="ticker"  type="text" placeholder="AAPL" value="AAPL" maxlength="10"/>
+  <input id="datefrom" type="date" title="From date"/>
+  <span class="date-sep">→</span>
+  <input id="dateto"   type="date" title="To date"/>
+  <div class="sep"></div>
+  <div class="ctrl-group">
+    <label>TF</label>
+    <select id="timeframe">
+      <option value="1">1 min</option>
+      <option value="2" selected>2 min</option>
+      <option value="5">5 min</option>
+      <option value="15">15 min</option>
+    </select>
+  </div>
+  <div class="ctrl-group">
+    <label>BB</label>
+    <input type="range" id="bb-period" min="5" max="50" value="20" step="1" oninput="onCtrl()"/>
+    <span class="cv" id="period-out">20</span>
+  </div>
+  <div class="ctrl-group">
+    <label>2&sigma;</label>
+    <input type="range" id="bb-std" min="1" max="2.5" value="2" step="0.5" oninput="onCtrl()"/>
+    <span class="cv" id="std-out">2.0</span>
+  </div>
+  <div class="sep"></div>
+  <button id="fetchbtn" onclick="loadChart()">Load bars</button>
+</div>
+
+
+<!-- ══ Zoom bar ══ -->
+<div class="zoom-bar">
+  <span class="zoom-label">Zoom to time</span>
+  <input type="time" id="zfrom" step="60" title="From time"/>
+  <span class="zoom-sep">→</span>
+  <input type="time" id="zto"   step="60" title="To time"/>
+  <button id="zoombtn"   onclick="zoomToRange()" disabled>Apply</button>
+  <button id="zresetbtn" onclick="zoomReset()"   disabled>&#8635; Full view</button>
+  <span class="sep"></span>
+  <span class="zoom-label" style="padding-left:2px">Presets</span>
+  <button class="zoom-preset" onclick="applyPreset('open')"    id="pre-open">Open 9:30–10:30</button>
+  <button class="zoom-preset" onclick="applyPreset('morning')" id="pre-morning">Morning 9:30–12:00</button>
+  <button class="zoom-preset" onclick="applyPreset('lunch')"   id="pre-lunch">Lunch 11:30–13:30</button>
+  <button class="zoom-preset" onclick="applyPreset('close')"   id="pre-close">Close 14:30–16:00</button>
+  <button class="zoom-preset" onclick="applyPreset('power')"   id="pre-power">Power hour 15:00–16:00</button>
+</div>
+
+<!-- ══ Day nav bar ══ -->
+<div class="day-bar" id="day-bar" style="display:none;">
+  <div class="view-toggle">
+    <button class="vt-btn active" id="vt-1d" onclick="setViewMode('1d')">1D</button>
+    <button class="vt-btn"        id="vt-7d" onclick="setViewMode('7d')">7D</button>
+  </div>
+  <span class="sep"></span>
+  <button class="day-btn" id="day-prev" onclick="goDay(-1)">&#8592; Prev</button>
+  <span id="day-display">&#8212;</span>
+  <button class="day-btn" id="day-next" onclick="goDay(+1)">Next &#8594;</button>
+  <span id="day-index"></span>
+  <span style="flex:1"></span>
+  <span id="day-sub"></span>
+</div>
+
+
+<!-- ══ Indicator toggle bar ══ -->
+<div class="ind-bar">
+  <span class="ind-label">Indicators</span>
+  <div class="ind-toggles" id="ind-toggles"></div>
+  <span class="ind-spacer"></span>
+  <button class="ind-tog-all" onclick="toggleAll(true)">All on</button>
+  <button class="ind-tog-all" onclick="toggleAll(false)">All off</button>
+</div>
+
+<!-- ══ Status ══ -->
+<div id="statusbar">
+  <span class="dot" id="dot"></span>
+  <span id="status-msg">Enter API key · ticker · date range · then click Load bars.</span>
+</div>
+
+<!-- ══ Metrics ══ -->
+<div class="metrics-wrap" style="grid-template-columns:repeat(5,1fr);">
+  <div class="metric"><div class="mlabel">Last Close</div><div class="mval" id="m-close">&#8212;</div></div>
+  <div class="metric"><div class="mlabel">VWAP</div><div class="mval gold" id="m-vwap">&#8212;</div></div>
+  <div class="metric"><div class="mlabel">RSI (14)</div><div class="mval" id="m-rsi">&#8212;</div></div>
+  <div class="metric"><div class="mlabel">MACD Hist</div><div class="mval" id="m-macd">&#8212;</div></div>
+  <div class="metric"><div class="mlabel">BB Width</div><div class="mval" id="m-bbw">&#8212;</div></div>
+</div>
+
+<!-- ══ Legend ══ -->
+<div class="legend">
+  <span><span class="lsq" style="background:#22c55e"></span>Up</span>
+  <span><span class="lsq" style="background:#ef4444"></span>Down</span>
+  <span><span class="ldash" style="border-color:#60a5fa"></span>BB 2&sigma;</span>
+  <span><span class="ldash" style="border-color:#c084fc"></span>BB 3&sigma;</span>
+  <span><span class="ldash" style="border-color:#94a3b8"></span>SMA</span>
+  <span><span class="lsolid" style="border-color:#fbbf24"></span>VWAP</span>
+  <span><span class="lsolid" style="border-color:#06b6d4"></span>EMA 8</span>
+  <span><span class="lsolid" style="border-color:#f97316"></span>EMA 21</span>
+  <span><span class="lsolid" style="border-color:#ec4899"></span>EMA 50</span>
+  <span><span class="ltri up" style="border-bottom-color:#22c55e"></span>Call entry ▲</span>
+  <span><span class="ltri dn" style="border-top-color:#ef4444"></span>Put entry ▼</span>
+  <span style="margin-left:auto;font-family:var(--font-mono);" id="bar-count"></span>
+</div>
+
+<!-- ══ Restore bar (shown when a panel is maximized) ══ -->
+<div class="restore-bar" id="restore-bar">
+  <span id="restore-label">Panel maximized</span>
+  <span style="flex:1"></span>
+  <span style="font-size:11px;color:var(--muted)">Press Esc or click →</span>
+  <button onclick="restorePanel()">⤡ Restore layout</button>
+</div>
+
+<!-- ══ Price Panel ══ -->
+<div class="panel" id="panel-price">
+  <div class="panel-header">
+    <span>Price &middot; Bollinger &middot; VWAP &middot; EMA &middot; Volume &middot; Signals</span>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span style="font-size:10px;color:var(--soft)">scroll=zoom &middot; drag=pan</span>
+      <button class="max-btn" onclick="maximizePanel('panel-price','Price')">⤢</button>
+      <button class="reset-btn" onclick="resetZoom('price')">&#8635; Reset</button>
+      <span class="pill" id="ticker-pill">&#8212;</span>
+    </div>
+  </div>
+  <div class="chart-wrap price-wrap">
+    <div id="empty-state">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3">
+        <path d="M7 17V9M10 17V5M13 17v-6M16 17v-3"/><rect x="3" y="3" width="18" height="18" rx="2"/>
+      </svg>
+      Awaiting data
+    </div>
+
+    <canvas id="priceChart" height="420" class="hidden"></canvas>
+  </div>
+</div>
+
+<!-- ══ MACD Panel ══ -->
+<div class="panel" id="panel-macd">
+  <div class="panel-header">
+    <span>MACD &middot; 12 / 26 / 9
+      &nbsp;&nbsp;<span style="color:var(--macdl)">Line</span>
+      &nbsp;<span style="color:var(--macds)">Signal</span>
+      &nbsp;<span style="color:var(--up)">Hist+</span>/<span style="color:var(--down)">Hist-</span>
+    </span>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span style="font-size:10px;color:var(--soft)">scroll=zoom &middot; drag=pan</span>
+      <button class="max-btn" onclick="maximizePanel('panel-macd','MACD')">⤢</button>
+      <button class="reset-btn" onclick="resetZoom('macd')">&#8635; Reset</button>
+    </div>
+  </div>
+  <div class="chart-wrap">
+    <canvas id="macdChart" height="150" class="hidden"></canvas>
+  </div>
+</div>
+
+<!-- ══ RSI Panel ══ -->
+<div class="panel" id="panel-rsi">
+  <div class="panel-header">
+    <span>RSI (14) &middot;
+      <span style="color:#ef4444">OB 70</span> /
+      <span style="color:#22c55e">OS 30</span>
+    </span>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span style="font-size:10px;color:var(--soft)">scroll=zoom &middot; drag=pan</span>
+      <button class="max-btn" onclick="maximizePanel('panel-rsi','RSI')">⤢</button>
+      <button class="reset-btn" onclick="resetZoom('rsi')">&#8635; Reset</button>
+    </div>
+  </div>
+  <div class="chart-wrap">
+    <canvas id="rsiChart" height="120" class="hidden"></canvas>
+  </div>
+</div>
+
+<!-- ══ 30-min Panel ══ -->
+<div class="panel" id="panel-30m">
+  <div class="panel-header">
+    <span>30-min Candles &middot; Bollinger &middot; VWAP &middot; EMA &middot; <span style="color:#facc15">EMA40</span> &middot; <span style="color:#ef4444">EMA80</span>
+      <span style="font-size:10px;color:var(--muted);margin-left:8px;" id="bar-count-30m"></span>
+    </span>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span style="font-size:10px;color:var(--soft)">scroll=zoom &middot; drag=pan</span>
+      <button class="max-btn" onclick="maximizePanel('panel-30m','30-min')">⤢</button>
+      <button class="reset-btn" onclick="resetZoom('30m')">&#8635; Reset</button>
+    </div>
+  </div>
+  <div class="chart-wrap">
+    <canvas id="chart30m" height="320" class="hidden"></canvas>
+  </div>
+</div>
+
+
+
+
+
+<script>
+// ════════════════════════════════════════
+// Dataset index map — price chart
+// ════════════════════════════════════════
+var DS = {
+  CANDLE:0,
+  BB2_U:1, SMA:2, BB2_L:3,
+  BB3_U:4, BB3_L:5,
+  VWAP:6,
+  EMA8:7, EMA21:8, EMA50:9,
+  VOL:10,
+  SIG_BUL2:11, SIG_BEA2:12,
+  SIG_BUL3:13, SIG_BEA3:14
+};
+
+// ════════════════════════════════════════
+// Indicator config  (key → toggle meta)
+// pds  = price chart dataset indices to show/hide
+// panel = panel div id to show/hide
+// ════════════════════════════════════════
+var IND = {
+  bb2:    {on:true, label:'BB 2\u03c3', color:'#60a5fa', pds:[DS.BB2_U,DS.BB2_L]},
+  sma:    {on:true, label:'SMA',        color:'#94a3b8', pds:[DS.SMA]},
+  bb3:    {on:true, label:'BB 3\u03c3', color:'#c084fc', pds:[DS.BB3_U,DS.BB3_L]},
+  vwap:   {on:true, label:'VWAP',       color:'#fbbf24', pds:[DS.VWAP]},
+  ema:    {on:true, label:'EMA',        color:'#06b6d4', pds:[DS.EMA8,DS.EMA21,DS.EMA50]},
+  volume: {on:true, label:'Volume',     color:'#64748b', pds:[DS.VOL]},
+  signals:{on:true, label:'Signals',    color:'#e2e8f0', pds:[DS.SIG_BUL2,DS.SIG_BEA2,DS.SIG_BUL3,DS.SIG_BEA3]},
+  macd:   {on:true, label:'MACD',       color:'#22c55e', panel:'panel-macd'},
+  rsi:    {on:true, label:'RSI',        color:'#f59e0b', panel:'panel-rsi'},
+  tf30m:  {on:true, label:'30 min',       color:'#34d399', panel:'panel-30m'}
+};
+
+// ════════════════════════════════════════
+// Build toggle pills from IND
+// ════════════════════════════════════════
+(function(){
+  var wrap = document.getElementById('ind-toggles');
+  Object.keys(IND).forEach(function(key){
+    var ind = IND[key];
+    var btn = document.createElement('button');
+    btn.id = 'tog-' + key;
+    btn.className = 'ind-tog on';
+    btn.style.color = ind.color;
+    btn.style.borderColor = ind.color + '55';
+    btn.innerHTML = '<span class="td"></span>' + ind.label;
+    btn.onclick = function(){ toggleInd(key); };
+    wrap.appendChild(btn);
+  });
+})();
+
+// ════════════════════════════════════════
+// State
+// ════════════════════════════════════════
+var priceChart = null, macdChart = null, rsiChart = null, chart30m = null;
+var dayGroups = [];   // [{date, bars}]
+var currentDayIdx = 0;
+var rawBars = [];
+var viewMode = '1d';  // '1d' | '7d'
+
+// Returns the bars to display based on viewMode
+function getActiveBars(){
+  if(!dayGroups.length) return rawBars;
+  if(viewMode === '7d'){
+    var startIdx = Math.max(0, currentDayIdx - 6);
+    var combined = [];
+    for(var i = startIdx; i <= currentDayIdx; i++)
+      combined = combined.concat(dayGroups[i].bars);
+    return combined;
+  }
+  return dayGroups[currentDayIdx].bars;
+}
+
+// Switch view mode and re-render
+function setViewMode(mode){
+  if(!dayGroups.length) return;
+  viewMode = mode;
+  document.getElementById('vt-1d').classList.toggle('active', mode==='1d');
+  document.getElementById('vt-7d').classList.toggle('active', mode==='7d');
+  var ticker = document.getElementById('ticker').value.trim().toUpperCase();
+  renderAll(ticker, getActiveBars());
+  updateDayNav();
+}
+var _bb2C=null, _bb3C=null, _rsiC=null, _vwapC=null;
+var xhairHandlers = {};   // keyed by canvas DOM id
+
+// ════════════════════════════════════════
+// Default dates — last trading day
+// ════════════════════════════════════════
+(function(){
+  var d=new Date(), day=d.getDay();
+  d.setDate(d.getDate()-(day===0?2:day===1?3:1));
+  var ds=d.toISOString().slice(0,10);
+  document.getElementById('datefrom').value=ds;
+  document.getElementById('dateto').value=ds;
+})();
+
+// ════════════════════════════════════════
+// ── Day-divider plugin: yellow vertical lines at each trading-day boundary ──
+var dayDividerPlugin = {
+  id: 'dayDivider',
+  afterDraw: function(chart){
+    var dividers = chart.options.dayDividers;
+    if(!dividers || !dividers.length) return;
+    var xAxis = chart.scales.x;
+    if(!xAxis) return;
+    var ctx = chart.ctx;
+    var top    = chart.chartArea.top;
+    var bottom = chart.chartArea.bottom;
+    ctx.save();
+    ctx.strokeStyle = 'rgba(250,204,21,0.55)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([5, 4]);
+    dividers.forEach(function(ts){
+      var x = xAxis.getPixelForValue(ts);
+      if(x >= chart.chartArea.left && x <= chart.chartArea.right){
+        ctx.beginPath();
+        ctx.moveTo(x, top);
+        ctx.lineTo(x, bottom);
+        ctx.stroke();
+      }
+    });
+    ctx.restore();
+  }
+};
+Chart.register(dayDividerPlugin);
+
+// Crosshair plugin
+// ════════════════════════════════════════
+Chart.register({
+  id:'crosshair',
+  afterDraw:function(chart){
+    if(chart._xhairX==null) return;
+    var ca=chart.chartArea, x=chart._xhairX;
+    if(x<ca.left||x>ca.right) return;
+    var ctx=chart.ctx;
+    ctx.save();
+    ctx.strokeStyle='rgba(200,215,235,.5)';
+    ctx.lineWidth=1; ctx.setLineDash([3,3]);
+    ctx.beginPath(); ctx.moveTo(x,ca.top); ctx.lineTo(x,ca.bottom);
+    ctx.stroke(); ctx.restore();
+  }
+});
+
+// ════════════════════════════════════════
+// Math helpers
+// ════════════════════════════════════════
+function calcBB(closes,period,mult){
+  var u=[],m=[],l=[];
+  for(var i=0;i<closes.length;i++){
+    if(i<period-1){u.push(null);m.push(null);l.push(null);continue;}
+    var sl=closes.slice(i-period+1,i+1);
+    var sma=sl.reduce(function(a,b){return a+b;},0)/period;
+    var std=Math.sqrt(sl.reduce(function(a,b){return a+(b-sma)*(b-sma);},0)/period);
+    u.push(+(sma+mult*std).toFixed(4));
+    m.push(+sma.toFixed(4));
+    l.push(+(sma-mult*std).toFixed(4));
+  }
+  return{upper:u,mid:m,lower:l};
+}
+
+function calcEMA(values,period){
+  var k=2/(period+1), ema=new Array(values.length).fill(null);
+  var s=period-1;
+  while(s<values.length&&values[s]==null) s++;
+  if(s>=values.length) return ema;
+  var seed=values.slice(0,s+1).filter(function(v){return v!=null;});
+  ema[s]=seed.reduce(function(a,b){return a+b;},0)/seed.length;
+  for(var i=s+1;i<values.length;i++){
+    if(values[i]==null) continue;
+    ema[i]=values[i]*k+ema[i-1]*(1-k);
+  }
+  return ema;
+}
+
+function calcMACD(closes){
+  var ef=calcEMA(closes,12), es=calcEMA(closes,26);
+  var ml=closes.map(function(_,i){
+    return ef[i]!=null&&es[i]!=null ? +(ef[i]-es[i]).toFixed(4) : null;
+  });
+  var sl=calcEMA(ml,9);
+  var hist=ml.map(function(v,i){
+    return v!=null&&sl[i]!=null ? +(v-sl[i]).toFixed(4) : null;
+  });
+  return{line:ml, signal:sl, histogram:hist};
+}
+
+function calcRSI(closes,period){
+  var rsi=new Array(closes.length).fill(null);
+  if(closes.length<period+1) return rsi;
+  var gains=0, losses=0;
+  for(var i=1;i<=period;i++){
+    var ch=closes[i]-closes[i-1];
+    if(ch>=0) gains+=ch; else losses-=ch;
+  }
+  var ag=gains/period, al=losses/period;
+  rsi[period]=al===0?100:+(100-(100/(1+ag/al))).toFixed(2);
+  for(var i=period+1;i<closes.length;i++){
+    var ch=closes[i]-closes[i-1];
+    var g=ch>0?ch:0, lo=ch<0?-ch:0;
+    ag=(ag*(period-1)+g)/period;
+    al=(al*(period-1)+lo)/period;
+    rsi[i]=al===0?100:+(100-(100/(1+ag/al))).toFixed(2);
+  }
+  return rsi;
+}
+
+function calcVWAP(bars){
+  var vwap=[],cumTPV=0,cumVol=0,curDay=null;
+  for(var i=0;i<bars.length;i++){
+    var b=bars[i];
+    var day=new Date(b.t).toDateString();
+    if(day!==curDay){cumTPV=0;cumVol=0;curDay=day;}
+    var tp=(b.h+b.l+b.c)/3;
+    cumTPV+=tp*b.v; cumVol+=b.v;
+    vwap.push(cumVol>0?+(cumTPV/cumVol).toFixed(4):null);
+  }
+  return vwap;
+}
+
+// ── Signal logic (v02.11) ──────────────────────────────────────────────────
+// CALL  entry: bar[i] closes ABOVE upper BB → bar[i+1] is an UP bar (c > o)
+// PUT   entry: bar[i] closes BELOW lower BB → bar[i+1] is a DOWN bar (c < o)
+// Marker is plotted at the CONFIRMATION bar (bar[i+1]) — that is your entry.
+// ──────────────────────────────────────────────────────────────────────────
+function calcSignals(bars,bb2,bb3){
+  var bul2=[],bea2=[],bul3=[],bea3=[];
+  for(var i=0;i<bars.length-1;i++){
+    var b=bars[i], nx=bars[i+1];
+    // BB2 — CALL: close > upper band, next bar is green (up)
+    if(bb2.upper[i]!=null && b.c > bb2.upper[i] && nx.c > nx.o)
+      bul2.push({x:nx.t, y:+(nx.l*0.9978).toFixed(4)});
+    // BB2 — PUT: close < lower band, next bar is red (down)
+    if(bb2.lower[i]!=null && b.c < bb2.lower[i] && nx.c < nx.o)
+      bea2.push({x:nx.t, y:+(nx.h*1.0022).toFixed(4)});
+    // BB3 — same confirmation logic on 3σ bands
+    if(bb3.upper[i]!=null && b.c > bb3.upper[i] && nx.c > nx.o)
+      bul3.push({x:nx.t, y:+(nx.l*0.9955).toFixed(4)});
+    if(bb3.lower[i]!=null && b.c < bb3.lower[i] && nx.c < nx.o)
+      bea3.push({x:nx.t, y:+(nx.h*1.0045).toFixed(4)});
+  }
+  return{bul2:bul2, bea2:bea2, bul3:bul3, bea3:bea3};
+}
+
+// ════════════════════════════════════════
+// Render all charts
+// ════════════════════════════════════════
+function renderAll(ticker, dayBars){
+  dayBars = dayBars || rawBars;
+  var period = parseInt(document.getElementById('bb-period').value);
+  var mult   = parseFloat(document.getElementById('bb-std').value);
+  document.getElementById('period-out').textContent = period;
+  document.getElementById('std-out').textContent    = mult.toFixed(1);
+
+  // ── Warm-up: find the day group that owns dayBars[0] and prepend the
+  //    preceding day's bars. Works for both 1D and 7D modes.
+  var prevBars = [];
+  if(dayGroups.length && dayBars.length){
+    var firstTs = dayBars[0].t;
+    for(var _gi=0; _gi<dayGroups.length; _gi++){
+      if(dayGroups[_gi].bars.length && dayGroups[_gi].bars[0].t === firstTs){
+        if(_gi > 0) prevBars = dayGroups[_gi - 1].bars;
+        break;
+      }
+    }
+  }
+  var warmBars = prevBars.concat(dayBars);
+  var warmCloses = warmBars.map(function(b){return b.c;});
+  var offset = prevBars.length;   // index where current day starts
+
+  var _bb2w  = calcBB(warmCloses, period, mult);
+  var _bb3w  = calcBB(warmCloses, period, 3);
+  var _macdw = calcMACD(warmCloses);
+  var _rsiw  = calcRSI(warmCloses, 14);
+  var _ema8w = calcEMA(warmCloses, 8);
+  var _ema21w= calcEMA(warmCloses, 21);
+  var _ema50w= calcEMA(warmCloses, 50);
+
+  // Slice to current-day portion only
+  var bb2  = {upper:_bb2w.upper.slice(offset), mid:_bb2w.mid.slice(offset), lower:_bb2w.lower.slice(offset)};
+  var bb3  = {upper:_bb3w.upper.slice(offset), mid:_bb3w.mid.slice(offset), lower:_bb3w.lower.slice(offset)};
+  var macd = {line:_macdw.line.slice(offset), signal:_macdw.signal.slice(offset), histogram:_macdw.histogram.slice(offset)};
+  var rsi  = _rsiw.slice(offset);
+  var ema8 = _ema8w.slice(offset);
+  var ema21= _ema21w.slice(offset);
+  var ema50= _ema50w.slice(offset);
+  var vwap = calcVWAP(dayBars);   // VWAP always resets at session open — no warm-up needed
+
+  var closes = dayBars.map(function(b){return b.c;});  // keep for legacy refs
+  var sigs   = calcSignals(dayBars,bb2,bb3);
+
+  // cache for crosshair overlay
+  _bb2C=bb2; _bb3C=bb3; _rsiC=rsi; _vwapC=vwap;
+
+  var li=dayBars.length-1, last=dayBars[li];
+
+  // ── metrics ──
+  var hv=macd.histogram[li], rv=rsi[li], vv=vwap[li];
+  var me=document.getElementById('m-macd');
+  me.textContent=hv!=null?hv.toFixed(4):'--';
+  me.className='mval '+(hv==null?'':hv>=0?'up':'down');
+  var re=document.getElementById('m-rsi');
+  re.textContent=rv!=null?rv.toFixed(1):'--';
+  re.className='mval '+(rv==null?'':rv>=70?'down':rv<=30?'up':'amber');
+  document.getElementById('m-vwap').textContent=vv!=null?'$'+vv.toFixed(2):'--';
+  document.getElementById('m-close').textContent=last?'$'+last.c.toFixed(2):'--';
+  var bbw = (bb2.upper[li]!=null&&bb2.lower[li]!=null) ?
+    ((bb2.upper[li]-bb2.lower[li])/bb2.mid[li]*100).toFixed(2)+'%' : '--';
+  document.getElementById('m-bbw').textContent=bbw;
+
+  // ── show UI ──
+  document.getElementById('empty-state').classList.add('hidden');
+  ['priceChart','macdChart','rsiChart'].forEach(function(id){
+    document.getElementById(id).classList.remove('hidden');
+  });
+
+
+  // ── helpers ──
+  var mkLine=function(arr){
+    return dayBars.map(function(b,i){
+      return arr[i]!=null?{x:b.t,y:arr[i]}:null;
+    }).filter(Boolean);
+  };
+  var ohlcData=dayBars.map(function(b){return{x:b.t,o:b.o,h:b.h,l:b.l,c:b.c};});
+  var maxVol=Math.max.apply(null,dayBars.map(function(b){return b.v;}));
+  var off=function(key){return !IND[key].on;};   // hidden = !on
+
+  var zoomOpts={
+    pan:{enabled:true,mode:'x'},
+    zoom:{wheel:{enabled:true},pinch:{enabled:true},mode:'x'}
+  };
+  var ttBase={
+    backgroundColor:'#131820',borderColor:'#1e2530',borderWidth:1,
+    titleColor:'#8a9ab5',bodyColor:'#e2e8f0',
+    titleFont:{family:'IBM Plex Mono',size:11},
+    bodyFont:{family:'IBM Plex Mono',size:11},padding:10
+  };
+  var sessionMin = dayBars[0].t;
+  var sessionMax = dayBars[dayBars.length-1].t + 2*60*1000;
+
+  // Collect day-boundary timestamps (first bar of each day except the first)
+  // Used by the dayDivider plugin to draw yellow separators
+  var _dayDividers = [];
+  if(viewMode === '7d'){
+    var _lastDay = null;
+    for(var _di=0; _di<dayBars.length; _di++){
+      var _d = new Date(dayBars[_di].t).toDateString();
+      if(_lastDay && _d !== _lastDay) _dayDividers.push(dayBars[_di].t);
+      _lastDay = _d;
+    }
+  }
+
+  // timeseries: equal bar spacing, no overnight/weekend gaps
+  var spanDays = viewMode === '7d' ? Math.min(7, dayGroups.length) : 1;
+  var xTimeOpts = spanDays >= 3
+    ? {unit:'hour',  stepSize:2,  displayFormats:{hour:'MM/dd HH:mm', minute:'HH:mm'}}
+    : spanDays === 2
+    ? {unit:'hour',  stepSize:1,  displayFormats:{hour:'MM/dd HH:mm', minute:'HH:mm'}}
+    : {unit:'minute',stepSize:30, displayFormats:{minute:'HH:mm'}};
+  var xScale={
+    type:'timeseries',
+    min: sessionMin,
+    max: sessionMax,
+    time: xTimeOpts,
+    ticks:{color:'#3a4455',font:{family:'IBM Plex Mono',size:11},maxRotation:0,autoSkip:true,maxTicksLimit:16},
+    grid:{color:'rgba(255,255,255,.04)'}
+  };
+
+  // ════════════════════════════════════════
+  // Price chart  (15 datasets, indices = DS.*)
+  // ════════════════════════════════════════
+  if(priceChart){priceChart.destroy();priceChart=null;}
+  var ctx1=document.getElementById('priceChart').getContext('2d');
+  priceChart=new Chart(ctx1,{
+    type:'candlestick',
+    data:{datasets:[
+      // 0 — Candle
+      {type:'candlestick',label:ticker,data:ohlcData,
+       color:{up:'#22c55e',down:'#ef4444',unchanged:'#94a3b8'},
+       borderColor:{up:'#22c55e',down:'#ef4444',unchanged:'#94a3b8'},
+       order:2, yAxisID:'y'},
+      // 1 — BB2 Upper
+      {type:'line',label:'BB2 Upper',data:mkLine(bb2.upper),hidden:off('bb2'),
+       borderColor:'#60a5fa',borderWidth:1.5,borderDash:[4,3],pointRadius:0,fill:false,tension:0,order:1,yAxisID:'y'},
+      // 2 — SMA
+      {type:'line',label:'SMA',data:mkLine(bb2.mid),hidden:off('sma'),
+       borderColor:'#94a3b8',borderWidth:1,borderDash:[5,4],pointRadius:0,fill:false,tension:0,order:1,yAxisID:'y'},
+      // 3 — BB2 Lower
+      {type:'line',label:'BB2 Lower',data:mkLine(bb2.lower),hidden:off('bb2'),
+       borderColor:'#60a5fa',borderWidth:1.5,borderDash:[4,3],pointRadius:0,fill:false,tension:0,order:1,yAxisID:'y'},
+      // 4 — BB3 Upper
+      {type:'line',label:'BB3 Upper',data:mkLine(bb3.upper),hidden:off('bb3'),
+       borderColor:'#c084fc',borderWidth:1.5,borderDash:[6,3],pointRadius:0,fill:false,tension:0,order:1,yAxisID:'y'},
+      // 5 — BB3 Lower
+      {type:'line',label:'BB3 Lower',data:mkLine(bb3.lower),hidden:off('bb3'),
+       borderColor:'#c084fc',borderWidth:1.5,borderDash:[6,3],pointRadius:0,fill:false,tension:0,order:1,yAxisID:'y'},
+      // 6 — VWAP
+      {type:'line',label:'VWAP',data:mkLine(vwap),hidden:off('vwap'),
+       borderColor:'#fbbf24',borderWidth:2,pointRadius:0,fill:false,tension:0,order:1,yAxisID:'y'},
+      // 7 — EMA 8
+      {type:'line',label:'EMA 8',data:mkLine(ema8),hidden:off('ema'),
+       borderColor:'#06b6d4',borderWidth:1,pointRadius:0,fill:false,tension:0,order:1,yAxisID:'y'},
+      // 8 — EMA 21
+      {type:'line',label:'EMA 21',data:mkLine(ema21),hidden:off('ema'),
+       borderColor:'#f97316',borderWidth:1,pointRadius:0,fill:false,tension:0,order:1,yAxisID:'y'},
+      // 9 — EMA 50
+      {type:'line',label:'EMA 50',data:mkLine(ema50),hidden:off('ema'),
+       borderColor:'#ec4899',borderWidth:1.5,pointRadius:0,fill:false,tension:0,order:1,yAxisID:'y'},
+      // 10 — Volume
+      {type:'bar',label:'Volume',
+       data:dayBars.map(function(b){return{x:b.t,y:b.v};}),
+       hidden:off('volume'),
+       backgroundColor:dayBars.map(function(b){return b.c>=b.o?'rgba(34,197,94,.32)':'rgba(239,68,68,.32)';}),
+       borderColor:dayBars.map(function(b){return b.c>=b.o?'rgba(34,197,94,.6)':'rgba(239,68,68,.6)';}),
+       borderWidth:1,barPercentage:.85,categoryPercentage:1,order:3,yAxisID:'yVol'},
+      // 11 — BB2 Call signal (prev bar > upper BB2, confirm up bar)
+      {type:'scatter',label:'BB2 Call',data:sigs.bul2,hidden:off('signals'),
+       pointStyle:'triangle',rotation:0,pointRadius:7,
+       backgroundColor:'rgba(34,197,94,.9)',borderColor:'#22c55e',borderWidth:1,order:0,yAxisID:'y'},
+      // 12 — BB2 Put signal (prev bar < lower BB2, confirm down bar)
+      {type:'scatter',label:'BB2 Put',data:sigs.bea2,hidden:off('signals'),
+       pointStyle:'triangle',rotation:180,pointRadius:7,
+       backgroundColor:'rgba(239,68,68,.9)',borderColor:'#ef4444',borderWidth:1,order:0,yAxisID:'y'},
+      // 13 — BB3 Call signal
+      {type:'scatter',label:'BB3 Call',data:sigs.bul3,hidden:off('signals'),
+       pointStyle:'triangle',rotation:0,pointRadius:10,
+       backgroundColor:'rgba(192,132,252,.9)',borderColor:'#c084fc',borderWidth:1,order:0,yAxisID:'y'},
+      // 14 — BB3 Put signal
+      {type:'scatter',label:'BB3 Put',data:sigs.bea3,hidden:off('signals'),
+       pointStyle:'triangle',rotation:180,pointRadius:10,
+       backgroundColor:'rgba(192,132,252,.9)',borderColor:'#c084fc',borderWidth:1,order:0,yAxisID:'y'}
+    ]},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      dayDividers: _dayDividers,
+      plugins:{
+        legend:{display:false},
+        zoom:zoomOpts,
+        tooltip:{enabled:false}
+      },
+      scales:{
+        x:xScale,
+        y:{position:'right',
+           ticks:{color:'#3a4455',font:{family:'IBM Plex Mono',size:11},callback:function(v){return'$'+v.toFixed(2);}},
+           grid:{color:'rgba(255,255,255,.04)'}},
+        yVol:{position:'left',display:false,min:0,max:maxVol*5,grid:{display:false}}
+      }
+    }
+  });
+
+  // ════════════════════════════════════════
+  // MACD chart (histogram + line + signal)
+  // ════════════════════════════════════════
+  if(macdChart){macdChart.destroy();macdChart=null;}
+  var ctx2=document.getElementById('macdChart').getContext('2d');
+  var hc=macd.histogram.map(function(v){return v==null?'transparent':v>=0?'rgba(34,197,94,.75)':'rgba(239,68,68,.75)';});
+  var hb=macd.histogram.map(function(v){return v==null?'transparent':v>=0?'#22c55e':'#ef4444';});
+  macdChart=new Chart(ctx2,{
+    type:'bar',
+    data:{datasets:[
+      {type:'bar',label:'Histogram',
+       data:dayBars.map(function(b,i){return{x:b.t,y:macd.histogram[i]};}),
+       backgroundColor:hc,borderColor:hb,borderWidth:1,barPercentage:.8,categoryPercentage:1,order:2},
+      {type:'line',label:'MACD',
+       data:dayBars.map(function(b,i){return macd.line[i]!=null?{x:b.t,y:macd.line[i]}:null;}).filter(Boolean),
+       borderColor:'#60a5fa',borderWidth:1.5,pointRadius:0,fill:false,tension:0,order:1},
+      {type:'line',label:'Signal',
+       data:dayBars.map(function(b,i){return macd.signal[i]!=null?{x:b.t,y:macd.signal[i]}:null;}).filter(Boolean),
+       borderColor:'#f97316',borderWidth:1.5,pointRadius:0,fill:false,tension:0,order:1}
+    ]},
+    options:{
+      dayDividers: _dayDividers,
+      responsive:true,maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{display:false},
+        zoom:zoomOpts,
+        tooltip:Object.assign({},ttBase,{callbacks:{
+          title:function(items){
+            var ts=items[0]&&items[0].raw?items[0].raw.x:(items[0]&&items[0].parsed?items[0].parsed.x:null);
+            return ts?new Date(ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'';
+          },
+          label:function(ctx){
+            var v=ctx.parsed&&ctx.parsed.y;
+            return v!=null?ctx.dataset.label+': '+v.toFixed(4):null;
+          }
+        }})
+      },
+      scales:{
+        x:xScale,
+        y:{position:'right',
+           ticks:{color:'#3a4455',font:{family:'IBM Plex Mono',size:11},callback:function(v){return v.toFixed(3);}},
+           grid:{color:'rgba(255,255,255,.04)'}}
+      }
+    }
+  });
+
+  // ════════════════════════════════════════
+  // RSI chart
+  // ════════════════════════════════════════
+  if(rsiChart){rsiChart.destroy();rsiChart=null;}
+  var ctx3=document.getElementById('rsiChart').getContext('2d');
+  var t0=dayBars[0].t, t1=dayBars[dayBars.length-1].t;
+  rsiChart=new Chart(ctx3,{
+    type:'line',
+    data:{datasets:[
+      {label:'RSI',
+       data:dayBars.map(function(b,i){return rsi[i]!=null?{x:b.t,y:rsi[i]}:null;}).filter(Boolean),
+       borderColor:'#f59e0b',borderWidth:2,pointRadius:0,fill:false,tension:0,order:1},
+      {label:'OB70',data:[{x:t0,y:70},{x:t1,y:70}],
+       borderColor:'rgba(239,68,68,.55)',borderWidth:1,borderDash:[4,3],pointRadius:0,fill:false,tension:0,order:2},
+      {label:'OS30',data:[{x:t0,y:30},{x:t1,y:30}],
+       borderColor:'rgba(34,197,94,.55)',borderWidth:1,borderDash:[4,3],pointRadius:0,fill:false,tension:0,order:2},
+      {label:'Mid50',data:[{x:t0,y:50},{x:t1,y:50}],
+       borderColor:'rgba(148,163,184,.2)',borderWidth:1,borderDash:[2,4],pointRadius:0,fill:false,tension:0,order:2}
+    ]},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{display:false},
+        zoom:zoomOpts,
+        tooltip:Object.assign({},ttBase,{callbacks:{
+          title:function(items){
+            var ts=items[0]&&items[0].raw?items[0].raw.x:(items[0]&&items[0].parsed?items[0].parsed.x:null);
+            return ts?new Date(ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'';
+          },
+          label:function(ctx){
+            if(ctx.dataset.label==='RSI'){
+              var v=ctx.parsed&&ctx.parsed.y;
+              return v!=null?'RSI: '+v.toFixed(1):null;
+            }
+            return null;
+          }
+        }})
+      },
+      dayDividers: _dayDividers,
+      scales:{
+        x:xScale,
+        y:{position:'right',min:0,max:100,
+           ticks:{color:'#3a4455',font:{family:'IBM Plex Mono',size:11},
+                  callback:function(v){return v===30||v===50||v===70?v:'';}},
+           grid:{color:'rgba(255,255,255,.04)'}}
+      }
+    }
+  });
+
+  // Show/hide panels per toggle state
+  document.getElementById('panel-macd').style.display=IND.macd.on?'':'none';
+  document.getElementById('panel-rsi').style.display=IND.rsi.on?'':'none';
+  document.getElementById('panel-30m').style.display=IND.tf30m.on?'':'none';
+  refreshLastClass();
+
+  // Bind crosshair across all 3 charts
+  // ── Aggregated timeframe charts ──
+  var bars30m = aggregateBars(dayBars, 30);
+  document.getElementById('bar-count-30m').textContent = bars30m.length + ' bars';
+  if(IND.tf30m.on) chart30m = renderTFChart('chart30m', chart30m, bars30m, ticker+' 30m', period, mult, _dayDividers);
+
+  bindCrosshair([priceChart,macdChart,rsiChart]);
+  enableZoomBar();
+}
+
+// ════════════════════════════════════════
+// Keep "last" class (bottom margin) on the
+// lowest visible panel
+// ════════════════════════════════════════
+function refreshLastClass(){
+  var ids=['panel-price','panel-macd','panel-rsi','panel-30m'];
+  ids.forEach(function(id){document.getElementById(id).classList.remove('last');});
+  for(var i=ids.length-1;i>=0;i--){
+    var el=document.getElementById(ids[i]);
+    if(el.style.display!=='none'){el.classList.add('last');break;}
+  }
+}
+
+// updateOverlay — overlay removed; keep caches only
+function updateOverlay(idx,bb2,bb3,rsi,vwap,bar){
+  if(bb2)_bb2C=bb2; if(bb3)_bb3C=bb3;
+  if(rsi)_rsiC=rsi; if(vwap)_vwapC=vwap;
+}
+
+// ════════════════════════════════════════
+// Crosshair — syncs all 3 charts
+// ════════════════════════════════════════
+function bindCrosshair(charts){
+  charts.forEach(function(src){
+    if(!src||!src.canvas) return;
+    var others=charts.filter(function(c){return c&&c!==src;});
+    var canvas=src.canvas;
+    var cid=canvas.id;   // use DOM id, stable across re-renders
+    if(xhairHandlers[cid]){
+      canvas.removeEventListener('mousemove', xhairHandlers[cid].move);
+      canvas.removeEventListener('mouseleave',xhairHandlers[cid].leave);
+    }
+    var move=function(e){
+      var rect=canvas.getBoundingClientRect();
+      var x=e.clientX-rect.left;
+      var ca=src.chartArea;
+      if(x<ca.left||x>ca.right){clearAllXhair(charts);return;}
+      var ts=src.scales.x.getValueForPixel(x);
+      src._xhairX=x;
+      others.forEach(function(tgt){
+        if(tgt&&tgt.scales&&tgt.scales.x)
+          tgt._xhairX=tgt.scales.x.getPixelForValue(ts);
+      });
+      if(rawBars.length){
+        var n=0,mn=Infinity;
+        for(var j=0;j<rawBars.length;j++){
+          var d=Math.abs(rawBars[j].t-ts);
+          if(d<mn){mn=d;n=j;}
+        }
+        updateOverlay(n,null,null,null,null,rawBars[n]);
+      }
+      charts.forEach(function(c){if(c)c.update('none');});
+    };
+    var leave=function(){clearAllXhair(charts);};
+    canvas.addEventListener('mousemove',move);
+    canvas.addEventListener('mouseleave',leave);
+    xhairHandlers[cid]={move:move,leave:leave};
+  });
+}
+
+function clearAllXhair(charts){
+  charts.forEach(function(c){if(c){c._xhairX=null;c.update('none');}});
+  if(rawBars.length)
+    updateOverlay(rawBars.length-1,null,null,null,null,rawBars[rawBars.length-1]);
+}
+
+// ════════════════════════════════════════
+// Toggle helpers
+// ════════════════════════════════════════
+function toggleInd(key){
+  var ind=IND[key];
+  ind.on=!ind.on;
+  var btn=document.getElementById('tog-'+key);
+  btn.classList.toggle('on',ind.on);
+  // price chart overlay datasets
+  if(ind.pds&&priceChart){
+    ind.pds.forEach(function(i){
+      priceChart.data.datasets[i].hidden=!ind.on;
+    });
+    priceChart.update();
+  }
+  // panel visibility
+  if(ind.panel){
+    document.getElementById(ind.panel).style.display=ind.on?'':'none';
+    refreshLastClass();
+  }
+}
+
+function toggleAll(val){
+  Object.keys(IND).forEach(function(key){
+    var ind=IND[key];
+    if(ind.on===val) return;
+    ind.on=val;
+    document.getElementById('tog-'+key).classList.toggle('on',val);
+    if(ind.pds&&priceChart)
+      ind.pds.forEach(function(i){priceChart.data.datasets[i].hidden=!val;});
+    if(ind.panel)
+      document.getElementById(ind.panel).style.display=val?'':'none';
+  });
+  if(priceChart)priceChart.update();
+  refreshLastClass();
+}
+
+
+// ════════════════════════════════════════
+// Aggregate 2-min bars → any timeframe
+// ════════════════════════════════════════
+function aggregateBars(bars, minutes){
+  var ms = minutes * 60 * 1000;
+  var buckets = [], cur = null;
+  for(var i=0;i<bars.length;i++){
+    var b = bars[i];
+    var bucket = Math.floor(b.t / ms) * ms;
+    if(!cur || cur.t !== bucket){
+      if(cur) buckets.push(cur);
+      cur = {t:bucket, o:b.o, h:b.h, l:b.l, c:b.c, v:b.v};
+    } else {
+      if(b.h > cur.h) cur.h = b.h;
+      if(b.l < cur.l) cur.l = b.l;
+      cur.c = b.c;
+      cur.v += b.v;
+    }
+  }
+  if(cur) buckets.push(cur);
+  return buckets;
+}
+
+// ════════════════════════════════════════
+// Render an aggregated timeframe chart
+// ════════════════════════════════════════
+function renderTFChart(canvasId, chartRef, bars, label, period, mult, dividers){
+  dividers = dividers || [];
+  var closes = bars.map(function(b){return b.c;});
+  var bb2    = calcBB(closes, period, mult);
+  var bb3    = calcBB(closes, period, 3);
+  var vwap   = calcVWAP(bars);
+  var ema8   = calcEMA(closes, 8);
+  var ema21  = calcEMA(closes, 21);
+  var ema50  = calcEMA(closes, 50);
+  var is30m  = canvasId === 'chart30m';
+  var ema40  = is30m ? calcEMA(closes, 40) : null;
+  var ema80  = is30m ? calcEMA(closes, 80) : null;
+
+  var mkLine = function(arr){
+    return bars.map(function(b,i){
+      return arr[i]!=null?{x:b.t,y:arr[i]}:null;
+    }).filter(Boolean);
+  };
+  var ohlcData = bars.map(function(b){return{x:b.t,o:b.o,h:b.h,l:b.l,c:b.c};});
+  var maxVol   = Math.max.apply(null, bars.map(function(b){return b.v;}));
+
+  var zoomOpts = {pan:{enabled:true,mode:'x'},zoom:{wheel:{enabled:true},pinch:{enabled:true},mode:'x'}};
+  var sMin = bars[0].t;
+  var sMax = bars[bars.length-1].t + 5*60*1000;
+  var spanDays = viewMode === '7d' ? Math.min(7, dayGroups.length) : 1;
+  var xTimeOpts = spanDays >= 3
+    ? {unit:'hour',  stepSize:4,  displayFormats:{hour:'MM/dd HH:mm', minute:'HH:mm'}}
+    : spanDays === 2
+    ? {unit:'hour',  stepSize:2,  displayFormats:{hour:'MM/dd HH:mm', minute:'HH:mm'}}
+    : {unit:'minute',stepSize:60, displayFormats:{minute:'HH:mm'}};
+  var xScale = {
+    type:'timeseries',
+    min: sMin,
+    max: sMax,
+    time: xTimeOpts,
+    ticks:{color:'#3a4455',font:{family:'IBM Plex Mono',size:11},maxRotation:0,autoSkip:true,maxTicksLimit:10},
+    grid:{color:'rgba(255,255,255,.04)'}
+  };
+
+  document.getElementById(canvasId).classList.remove('hidden');
+
+  if(chartRef){chartRef.destroy();chartRef=null;}
+  var ctx = document.getElementById(canvasId).getContext('2d');
+  var c = new Chart(ctx,{
+    type:'candlestick',
+    data:{datasets:[
+      {type:'candlestick',label:label,data:ohlcData,
+       color:{up:'#22c55e',down:'#ef4444',unchanged:'#94a3b8'},
+       borderColor:{up:'#22c55e',down:'#ef4444',unchanged:'#94a3b8'},order:3,yAxisID:'y'},
+      {type:'line',label:'BB2 Upper',data:mkLine(bb2.upper),hidden:!IND.bb2.on,
+       borderColor:'#60a5fa',borderWidth:1.5,borderDash:[4,3],pointRadius:0,fill:false,tension:0,order:2,yAxisID:'y'},
+      {type:'line',label:'SMA',data:mkLine(bb2.mid),hidden:!IND.sma.on,
+       borderColor:'#94a3b8',borderWidth:1,borderDash:[5,4],pointRadius:0,fill:false,tension:0,order:2,yAxisID:'y'},
+      {type:'line',label:'BB2 Lower',data:mkLine(bb2.lower),hidden:!IND.bb2.on,
+       borderColor:'#60a5fa',borderWidth:1.5,borderDash:[4,3],pointRadius:0,fill:false,tension:0,order:2,yAxisID:'y'},
+      {type:'line',label:'BB3 Upper',data:mkLine(bb3.upper),hidden:!IND.bb3.on,
+       borderColor:'#c084fc',borderWidth:1.5,borderDash:[6,3],pointRadius:0,fill:false,tension:0,order:2,yAxisID:'y'},
+      {type:'line',label:'BB3 Lower',data:mkLine(bb3.lower),hidden:!IND.bb3.on,
+       borderColor:'#c084fc',borderWidth:1.5,borderDash:[6,3],pointRadius:0,fill:false,tension:0,order:2,yAxisID:'y'},
+      {type:'line',label:'VWAP',data:mkLine(vwap),hidden:!IND.vwap.on,
+       borderColor:'#fbbf24',borderWidth:2,pointRadius:0,fill:false,tension:0,order:2,yAxisID:'y'},
+      {type:'line',label:'EMA 8',data:mkLine(ema8),hidden:!IND.ema.on,
+       borderColor:'#06b6d4',borderWidth:1,pointRadius:0,fill:false,tension:0,order:2,yAxisID:'y'},
+      {type:'line',label:'EMA 21',data:mkLine(ema21),hidden:!IND.ema.on,
+       borderColor:'#f97316',borderWidth:1,pointRadius:0,fill:false,tension:0,order:2,yAxisID:'y'},
+      {type:'line',label:'EMA 50',data:mkLine(ema50),hidden:!IND.ema.on,
+       borderColor:'#ec4899',borderWidth:1.5,pointRadius:0,fill:false,tension:0,order:2,yAxisID:'y'},
+      {type:'line',label:'EMA 40',data:is30m?mkLine(ema40):[],hidden:!is30m||!IND.ema.on,
+       borderColor:'#facc15',borderWidth:1.8,pointRadius:0,fill:false,tension:0,order:2,yAxisID:'y'},
+      {type:'line',label:'EMA 80',data:is30m?mkLine(ema80):[],hidden:!is30m||!IND.ema.on,
+       borderColor:'#ef4444',borderWidth:2,pointRadius:0,fill:false,tension:0,order:2,yAxisID:'y'},
+      {type:'bar',label:'Volume',
+       data:bars.map(function(b){return{x:b.t,y:b.v};}),hidden:!IND.volume.on,
+       backgroundColor:bars.map(function(b){return b.c>=b.o?'rgba(34,197,94,.32)':'rgba(239,68,68,.32)';}),
+       borderColor:bars.map(function(b){return b.c>=b.o?'rgba(34,197,94,.6)':'rgba(239,68,68,.6)';}),
+       borderWidth:1,barPercentage:.85,categoryPercentage:1,order:4,yAxisID:'yVol'}
+    ]},
+    options:{
+      dayDividers: dividers,
+      responsive:true,maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{display:false},
+        zoom:zoomOpts,
+        tooltip:{enabled:false}
+      },
+      scales:{
+        x:xScale,
+        y:{position:'right',
+           ticks:{color:'#3a4455',font:{family:'IBM Plex Mono',size:11},callback:function(v){return'$'+v.toFixed(2);}},
+           grid:{color:'rgba(255,255,255,.04)'}},
+        yVol:{position:'left',display:false,min:0,max:maxVol*5,grid:{display:false}}
+      }
+    }
+  });
+  return c;
+}
+
+
+// ════════════════════════════════════════
+// Day grouping & navigation
+// ════════════════════════════════════════
+// ── NYSE regular session filter (09:30–16:00 America/New_York) ──────────────
+var _etFmt = new Intl.DateTimeFormat('en-US',{
+  timeZone:'America/New_York',
+  hour:'2-digit', minute:'2-digit', hour12:false
+});
+function isNYSESession(ts){
+  var s = _etFmt.format(new Date(ts));   // e.g. "09:30" or "15:58"
+  var h = parseInt(s.slice(0,2),10);
+  var m = parseInt(s.slice(3,5),10);
+  var mins = h*60+m;
+  return mins >= 9*60+30 && mins < 16*60; // 09:30 ≤ t < 16:00 ET
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
+function groupByDay(bars){
+  var groups = [], cur = null, curDate = null;
+  for(var i=0;i<bars.length;i++){
+    if(!isNYSESession(bars[i].t)) continue;  // drop pre/post-market bars
+    var d = new Date(bars[i].t).toDateString();
+    if(d !== curDate){
+      if(cur) groups.push(cur);
+      curDate = d;
+      cur = {date: d, ts: bars[i].t, bars: []};
+    }
+    cur.bars.push(bars[i]);
+  }
+  if(cur) groups.push(cur);
+  return groups;
+}
+
+function goDay(delta){
+  var next = currentDayIdx + delta;
+  if(next < 0 || next >= dayGroups.length) return;
+  currentDayIdx = next;
+  var ticker = document.getElementById('ticker').value.trim().toUpperCase();
+  renderAll(ticker, getActiveBars());
+  updateDayNav();
+  zoomReset();
+}
+
+function updateDayNav(){
+  if(!dayGroups.length) return;
+  var is7d = viewMode === '7d';
+  document.getElementById('day-prev').style.display = is7d ? 'none' : '';
+  document.getElementById('day-next').style.display = is7d ? 'none' : '';
+  document.getElementById('day-index').style.display = is7d ? 'none' : '';
+  if(is7d){
+    var startIdx = Math.max(0, currentDayIdx - 6);
+    var d0 = new Date(dayGroups[startIdx].ts);
+    var d1 = new Date(dayGroups[currentDayIdx].ts);
+    var fmt0 = d0.toLocaleDateString([],{month:'short',day:'numeric'});
+    var fmt1 = d1.toLocaleDateString([],{month:'short',day:'numeric',year:'numeric'});
+    var nDays = currentDayIdx - startIdx + 1;
+    document.getElementById('day-display').textContent = fmt0 + ' → ' + fmt1;
+    document.getElementById('day-sub').textContent = nDays + ' days · ' + getActiveBars().length + ' bars';
+  } else {
+    var g   = dayGroups[currentDayIdx];
+    var dt  = new Date(g.ts);
+    var fmt = dt.toLocaleDateString([],{weekday:'short',month:'short',day:'numeric',year:'numeric'});
+    document.getElementById('day-display').textContent = fmt;
+    document.getElementById('day-index').textContent =
+      (currentDayIdx+1) + ' / ' + dayGroups.length + ' days';
+    document.getElementById('day-sub').textContent = g.bars.length + ' × 2-min bars';
+    document.getElementById('day-prev').disabled = currentDayIdx === 0;
+    document.getElementById('day-next').disabled = currentDayIdx === dayGroups.length-1;
+  }
+  document.getElementById('day-bar').style.display = '';
+}
+
+// ════════════════════════════════════════
+// Load / fetch
+// ════════════════════════════════════════
+async function loadChart(){
+  var key      = document.getElementById('apikey').value.trim();
+  var ticker   = document.getElementById('ticker').value.trim().toUpperCase();
+  var dateFrom = document.getElementById('datefrom').value;
+  var dateTo   = document.getElementById('dateto').value || dateFrom;
+  var tf       = document.getElementById('timeframe').value;
+  if(!key)    {setStatus('Please enter your API key.','err');return;}
+  if(!ticker) {setStatus('Please enter a ticker.','err');return;}
+  if(!dateFrom){setStatus('Please select a start date.','err');return;}
+  var btn=document.getElementById('fetchbtn');
+  btn.disabled=true; btn.textContent='Loading…';
+  setStatus('Fetching '+tf+'-min bars for '+ticker+' …','');
+  var url='https://api.polygon.io/v2/aggs/ticker/'+ticker+
+          '/range/'+tf+'/minute/'+dateFrom+'/'+dateTo+
+          '?adjusted=true&sort=asc&limit=5000&apiKey='+key;
+  try{
+    var res=await fetch(url);
+    var data=await res.json();
+    if(data.status==='ERROR'||data.error){
+      setStatus('API error: '+(data.error||data.message),'err');
+      btn.disabled=false;btn.textContent='Load bars';return;
+    }
+    if(!data.results||!data.results.length){
+      setStatus('No data for '+ticker+' '+dateFrom+' → '+dateTo+'. Try a trading day.','err');
+      btn.disabled=false;btn.textContent='Load bars';return;
+    }
+    rawBars=data.results;
+    dayGroups=groupByDay(rawBars);
+    currentDayIdx=dayGroups.length-1;
+    document.getElementById('ticker-pill').textContent=ticker;
+    document.getElementById('bar-count').textContent=
+      rawBars.length+' × '+tf+'-min bars'+(dateTo!==dateFrom?' ('+dateFrom+' → '+dateTo+')':'');
+    renderAll(ticker, getActiveBars());
+    updateDayNav();
+    setStatus(ticker+'  '+dateFrom+(dateTo!==dateFrom?' → '+dateTo:'')+'  '+rawBars.length+' bars loaded','live');
+  }catch(e){
+    setStatus('Fetch failed: '+e.message,'err');
+  }
+  btn.disabled=false;btn.textContent='Load bars';
+}
+
+// ════════════════════════════════════════
+// Export PNG  — merges all visible canvases
+// ════════════════════════════════════════
+function exportCharts(){
+  if(!rawBars.length){alert('Load data first.');return;}
+  var sources=[];
+  var c1=document.getElementById('priceChart');
+  if(!c1.classList.contains('hidden')) sources.push(c1);
+  if(IND.macd.on){var c2=document.getElementById('macdChart');if(!c2.classList.contains('hidden'))sources.push(c2);}
+  if(IND.rsi.on){var c3=document.getElementById('rsiChart');if(!c3.classList.contains('hidden'))sources.push(c3);}
+  if(!sources.length)return;
+  var gap=3;
+  var W=sources[0].width;
+  var H=sources.reduce(function(s,c){return s+c.height;},0)+(sources.length-1)*gap;
+  var out=document.createElement('canvas');
+  out.width=W; out.height=H;
+  var ctx=out.getContext('2d');
+  ctx.fillStyle='#0b0e11';
+  ctx.fillRect(0,0,W,H);
+  var y=0;
+  sources.forEach(function(c){
+    ctx.drawImage(c,0,y);
+    y+=c.height+gap;
+  });
+  var tick=document.getElementById('ticker').value.trim().toUpperCase()||'chart';
+  var link=document.createElement('a');
+  link.download=tick+'_'+document.getElementById('datefrom').value+'.png';
+  link.href=out.toDataURL('image/png');
+  link.click();
+}
+
+// ════════════════════════════════════════
+// Controls
+// ════════════════════════════════════════
+function resetZoom(which){
+  if(!rawBars.length) return;
+  // Restore to full session bounds rather than clearing to undefined,
+  // which prevents the zoom plugin from snapping back to a stale extent.
+  var bars = dayGroups.length ? dayGroups[currentDayIdx].bars : rawBars;
+  var sMin = bars.length ? bars[0].t : undefined;
+  var sMax = bars.length ? bars[bars.length-1].t + 2*60*1000 : undefined;
+  function applyFull(c){ if(!c) return; c.options.scales.x.min=sMin; c.options.scales.x.max=sMax; c.update(); }
+  if(which==='price') applyFull(priceChart);
+  if(which==='macd')  applyFull(macdChart);
+  if(which==='rsi')   applyFull(rsiChart);
+  if(which==='30m')   applyFull(chart30m);
+}
+
+function onCtrl(){
+  if(!rawBars.length) return;
+  var ticker=document.getElementById('ticker').value.trim().toUpperCase();
+  renderAll(ticker, getActiveBars());
+}
+
+// ── enable zoom controls once data is present ──
+function enableZoomBar(){
+  document.getElementById('zoombtn').disabled   = false;
+  document.getElementById('zresetbtn').disabled = false;
+  // pre-fill times from the actual bar range
+  var _zb = (dayGroups.length ? dayGroups[currentDayIdx].bars : rawBars);
+  if(_zb.length){
+    var t0 = new Date(_zb[0].t);
+    var t1 = new Date(_zb[_zb.length-1].t);
+    document.getElementById('zfrom').value = pad2(t0.getHours())+':'+pad2(t0.getMinutes());
+    document.getElementById('zto').value   = pad2(t1.getHours())+':'+pad2(t1.getMinutes());
+  }
+}
+
+function pad2(n){ return n<10?'0'+n:String(n); }
+
+// ── convert HH:MM on the first bar's calendar date → timestamp ──
+function timeToTs(hhmm, offsetMs){
+  // offsetMs: optional fine offset if the range spans midnight
+  if(!hhmm||!rawBars.length) return null;
+  var parts = hhmm.split(':');
+  var h = parseInt(parts[0]), m = parseInt(parts[1]);
+  // use the date of the first bar as the base calendar day
+  var _tb = (dayGroups.length ? dayGroups[currentDayIdx].bars : rawBars);
+  var base = new Date(_tb[0].t);
+  var d = new Date(base.getFullYear(), base.getMonth(), base.getDate(), h, m, 0, 0);
+  return d.getTime();
+}
+
+// ── apply zoom to all charts ──
+function zoomToRange(){
+  if(!rawBars.length) return;
+  var fromTs = timeToTs(document.getElementById('zfrom').value);
+  var toTs   = timeToTs(document.getElementById('zto').value);
+  if(fromTs==null||toTs==null){setStatus('Enter both From and To times.','err');return;}
+  if(toTs<=fromTs){setStatus('To time must be after From time.','err');return;}
+  applyZoom(fromTs, toTs, null);
+}
+
+function applyZoom(minTs, maxTs, presetKey){
+  var charts = [priceChart, macdChart, rsiChart];
+  charts.forEach(function(c){
+    if(!c) return;
+    c.options.scales.x.min = minTs;
+    c.options.scales.x.max = maxTs;
+    c.update();
+  });
+  // mark active preset
+  ['open','morning','lunch','close','power'].forEach(function(k){
+    var el = document.getElementById('pre-'+k);
+    if(el) el.classList.toggle('active', k===presetKey);
+  });
+  var fromStr = new Date(minTs).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+  var toStr   = new Date(maxTs).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+  setStatus('Zoomed to ' + fromStr + ' – ' + toStr, 'live');
+}
+
+function zoomReset(){
+  if(!rawBars.length) return;
+  var bars = dayGroups.length ? dayGroups[currentDayIdx].bars : rawBars;
+  var sMin = bars.length ? bars[0].t : undefined;
+  var sMax = bars.length ? bars[bars.length-1].t + 2*60*1000 : undefined;
+  var charts = [priceChart, macdChart, rsiChart];
+  charts.forEach(function(c){
+    if(!c) return;
+    c.options.scales.x.min = sMin;
+    c.options.scales.x.max = sMax;
+    c.update();
+  });
+  ['open','morning','lunch','close','power'].forEach(function(k){
+    var el = document.getElementById('pre-'+k);
+    if(el) el.classList.remove('active');
+  });
+  // restore full range times in the inputs
+  if(rawBars.length){
+    var t0=new Date(rawBars[0].t), t1=new Date(rawBars[rawBars.length-1].t);
+    document.getElementById('zfrom').value=pad2(t0.getHours())+':'+pad2(t0.getMinutes());
+    document.getElementById('zto').value  =pad2(t1.getHours())+':'+pad2(t1.getMinutes());
+  }
+  setStatus('Full view restored', 'live');
+}
+
+// ── preset definitions (ET — adjust if needed) ──
+var PRESETS = {
+  open:    { from:'09:30', to:'10:30' },
+  morning: { from:'09:30', to:'12:00' },
+  lunch:   { from:'11:30', to:'13:30' },
+  close:   { from:'14:30', to:'16:00' },
+  power:   { from:'15:00', to:'16:00' }
+};
+
+function applyPreset(key){
+  var p = PRESETS[key];
+  if(!p||!rawBars.length) return;
+  document.getElementById('zfrom').value = p.from;
+  document.getElementById('zto').value   = p.to;
+  var fromTs = timeToTs(p.from);
+  var toTs   = timeToTs(p.to);
+  if(fromTs==null||toTs==null) return;
+  applyZoom(fromTs, toTs, key);
+}
+
+function setStatus(msg,state){
+  document.getElementById('status-msg').textContent=msg;
+  document.getElementById('dot').className='dot'+(state?' '+state:'');
+}
+
+
+// ════════════════════════════════════════
+// Save bars to JSON file
+// ════════════════════════════════════════
+function saveData(){
+  if(!rawBars.length){alert('Load data from Polygon first.');return;}
+  var ticker = document.getElementById('ticker').value.trim().toUpperCase() || 'DATA';
+  var tf     = document.getElementById('timeframe').value;
+  var from   = document.getElementById('datefrom').value;
+  var to     = document.getElementById('dateto').value || from;
+
+  // ── derive actual first/last bar timestamps ──
+  function fmtBarTs(ts){
+    var d = new Date(ts);
+    var yy = d.getFullYear();
+    var mo = pad2(d.getMonth()+1);
+    var dd = pad2(d.getDate());
+    var hh = pad2(d.getHours());
+    var mm = pad2(d.getMinutes());
+    return yy + mo + dd + '_' + hh + mm;
+  }
+  var firstTs = rawBars[0].t;
+  var lastTs  = rawBars[rawBars.length-1].t;
+  var tsFrom  = fmtBarTs(firstTs);   // e.g. 20250523_0930
+  var tsTo    = fmtBarTs(lastTs);    // e.g. 20250606_1558
+
+  var payload = {
+    ticker: ticker,
+    timeframe: parseInt(tf),
+    from: from,
+    to: to,
+    firstBar: new Date(firstTs).toISOString(),
+    lastBar:  new Date(lastTs).toISOString(),
+    savedAt: new Date().toISOString(),
+    bars: rawBars
+  };
+  var blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
+  var link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = ticker + '_' + tf + 'min_' + tsFrom + '__' + tsTo + '.json';
+  link.click();
+  URL.revokeObjectURL(link.href);
+  setStatus('Saved ' + rawBars.length + ' bars → ' + link.download, 'live');
+}
+
+// ════════════════════════════════════════
+// Load bars from JSON file (no API call)
+// ════════════════════════════════════════
+function loadDataFile(event){
+  var file = event.target.files && event.target.files[0];
+  if(!file) return;
+  setStatus('Reading ' + file.name + ' …', '');
+  var reader = new FileReader();
+  reader.onload = function(e){
+    try{
+      var payload = JSON.parse(e.target.result);
+      // accept both the wrapped format {ticker,bars:[]} and a bare array
+      var bars   = Array.isArray(payload) ? payload : payload.bars;
+      var ticker = payload.ticker || document.getElementById('ticker').value.trim().toUpperCase() || 'DATA';
+      var tf     = payload.timeframe ? String(payload.timeframe) : document.getElementById('timeframe').value;
+      var from   = payload.from || '';
+      var to     = payload.to   || from;
+      if(!bars || !bars.length) throw new Error('No bars array found in file.');
+      // validate first bar has the expected fields
+      var b0 = bars[0];
+      if(b0.t==null||b0.o==null||b0.c==null) throw new Error('Unexpected bar format (need t,o,h,l,c,v).');
+      rawBars = bars;
+      dayGroups = groupByDay(rawBars);
+      currentDayIdx = dayGroups.length-1;
+      // sync controls to file metadata
+      document.getElementById('ticker').value = ticker;
+      if(from) document.getElementById('datefrom').value = from;
+      if(to)   document.getElementById('dateto').value   = to;
+      var tfSel = document.getElementById('timeframe');
+      for(var i=0;i<tfSel.options.length;i++){
+        if(tfSel.options[i].value === tf){ tfSel.selectedIndex=i; break; }
+      }
+      document.getElementById('ticker-pill').textContent = ticker;
+      document.getElementById('bar-count').textContent =
+        bars.length + ' × ' + tf + '-min bars (from file)';
+      // show a green pill in the header
+      var lbl = document.getElementById('file-loaded-label');
+      lbl.innerHTML = '';
+      var pill = document.createElement('span');
+      pill.className = 'file-loaded-pill';
+      pill.textContent = '📂 ' + file.name;
+      lbl.appendChild(pill);
+      renderAll(ticker, getActiveBars());
+      updateDayNav();
+      setStatus('Loaded ' + bars.length + ' bars from ' + file.name, 'live');
+    } catch(err){
+      setStatus('Failed to load file: ' + err.message, 'err');
+    }
+    // reset input so same file can be loaded again
+    event.target.value = '';
+  };
+  reader.onerror = function(){ setStatus('Could not read file.', 'err'); };
+  reader.readAsText(file);
+}
+// ════════════════════════════════════════
+// Maximize / restore panel
+// ════════════════════════════════════════
+var _maximizedId = null;
+
+function maximizePanel(panelId, label){
+  if(_maximizedId) restorePanel();
+  _maximizedId = panelId;
+  var el = document.getElementById(panelId);
+  el.classList.add('maximized');
+  document.body.classList.add('panel-maximized');
+  document.getElementById('restore-label').textContent = (label || panelId) + ' — maximized';
+  // Resize the chart inside so it fills the new height
+  _resizeMaxPanel(panelId);
+}
+
+function restorePanel(){
+  if(!_maximizedId) return;
+  var el = document.getElementById(_maximizedId);
+  el.classList.remove('maximized');
+  document.body.classList.remove('panel-maximized');
+  _maximizedId = null;
+  // Re-render so Chart.js reflows canvases correctly after CSS changes,
+  // preserving the current viewMode (1D / 7D) and day selection.
+  if(rawBars.length){
+    var ticker = document.getElementById('ticker').value.trim().toUpperCase();
+    setTimeout(function(){ renderAll(ticker, getActiveBars()); }, 30);
+  }
+}
+
+function _resizeMaxPanel(panelId){
+  var canvasMap = {
+    'panel-price':'priceChart','panel-macd':'macdChart',
+    'panel-rsi':'rsiChart','panel-30m':'chart30m'
+  };
+  var chartMap = {
+    'panel-price':function(){return priceChart;},
+    'panel-macd': function(){return macdChart;},
+    'panel-rsi':  function(){return rsiChart;},
+    'panel-30m':  function(){return chart30m;}
+  };
+  var cid = canvasMap[panelId];
+  if(!cid) return;
+  setTimeout(function(){
+    var c = chartMap[panelId]();
+    if(c) c.resize();
+  }, 30);
+}
+
+document.getElementById('ticker').addEventListener('keydown',function(e){if(e.key==='Enter')loadChart();});
+document.getElementById('apikey').addEventListener('keydown',function(e){if(e.key==='Enter')loadChart();});
+document.addEventListener('keydown', function(e){
+  if(e.key === 'Escape' && _maximizedId) restorePanel();
+  if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT') return;
+  if(e.key==='ArrowLeft')  goDay(-1);
+  if(e.key==='ArrowRight') goDay(+1);
+});
+</script>
+</body>
+</html>
