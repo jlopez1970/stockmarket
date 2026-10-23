@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>BB · VWAP · EMA · RSI · MACD · v03.18</title>
+<title>BB · VWAP · EMA · RSI · MACD · v03.19</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-financial@0.1.1/dist/chartjs-chart-financial.min.js"></script>
@@ -199,7 +199,7 @@ body.panel-maximized .panel.maximized .chart-wrap canvas{height:calc(100vh - 93p
 <header>
   <div class="logo">&#9632; BB &middot; VWAP &middot; EMA &middot; RSI &middot; MACD</div>
   <div class="header-right">
-    <div class="header-tag">Local data &middot; <span style="color:var(--accent)">v03.18</span></div>
+    <div class="header-tag">Local data &middot; <span style="color:var(--accent)">v03.19</span></div>
     <span id="file-loaded-label"></span>
     <button id="loadbtn" onclick="document.getElementById('fileinput').click()" title="Load saved .json">&#8593; Load data</button>
     <button id="savebtn" onclick="saveData()" title="Save bars to .json">&#8595; Save data</button>
@@ -491,6 +491,7 @@ var IND = {
   volume: {on:true, label:'Volume',     color:'#64748b', pds:[DS.VOL]},
   signals:{on:true, label:'Signals',    color:'#e2e8f0', pds:[DS.SIG_BUL2,DS.SIG_BEA2,DS.SIG_BUL3,DS.SIG_BEA3]},
   breakout:{on:true, label:'Breakout',  color:'#a3e635', pds:[DS.BRK_HI,DS.BRK_LO]},
+  dayrange:{on:true, label:'Day range %', color:'#e2e8f0', pds:[]},   // v03.19: (max−min)/min of each day shown
   pma1:   {on:true, label:'PMA 40',     color:'#f1f5f9', pds:[DS.PMA1]},
   pma2:   {on:true, label:'PMA 80',     color:'#2dd4bf', pds:[DS.PMA2]},
   pma3:   {on:true, label:'PMA 200',    color:'#e879f9', pds:[DS.PMA3]},
@@ -835,6 +836,40 @@ function _measFmtDur(min){
   var d=Math.floor(min/1440), h=Math.floor((min%1440)/60), m=Math.round(min%60);
   return (d? d+'d ':'')+(h? h+'h ':'')+(m? m+'m':'').trim();
 }
+// v03.19: range of each visible day — (max high − min low) / min low — drawn big in the middle of that day
+Chart.register({
+  id:'dayRange',
+  beforeDatasetsDraw:function(chart){
+    if(!chart.canvas || chart.canvas.id!=='priceChart' || !IND.dayrange || !IND.dayrange.on || isDailyTF()) return;
+    var d0=chart.data.datasets[0] && chart.data.datasets[0].data; if(!d0 || !d0.length) return;
+    var sx=chart.scales.x, sy=chart.scales.y, ca=chart.chartArea, ctx=chart.ctx;
+    var days=[], cur=null;
+    d0.forEach(function(b){
+      var d=_etParts(b.x).d;
+      if(!cur || cur.d!==d){ cur={d:d, t0:b.x, t1:b.x, hi:-Infinity, lo:Infinity}; days.push(cur); }
+      cur.t1=b.x; if(b.h>cur.hi) cur.hi=b.h; if(b.l<cur.lo) cur.lo=b.l;
+    });
+    ctx.save();
+    ctx.beginPath(); ctx.rect(ca.left,ca.top,ca.right-ca.left,ca.bottom-ca.top); ctx.clip();
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    days.forEach(function(dy){
+      var x0=sx.getPixelForValue(dy.t0), x1=sx.getPixelForValue(dy.t1);
+      if(x1<ca.left || x0>ca.right) return;
+      var w=Math.max(40, x1-x0), cx=(Math.max(x0,ca.left)+Math.min(x1,ca.right))/2, cy=(ca.top+ca.bottom)/2;
+      var pct=(dy.hi-dy.lo)/dy.lo*100, fs=Math.max(12, Math.min(44, w/5));
+      ctx.font='600 '+Math.round(fs)+'px "IBM Plex Mono", monospace';
+      ctx.fillStyle='rgba(226,232,240,.34)';
+      ctx.fillText(pct.toFixed(2)+'%', cx, cy);
+      var px=function(v){ return dy.lo<10 ? v.toFixed(5) : v.toFixed(2); };
+      ctx.font='500 '+Math.round(Math.max(10, fs*0.34))+'px "IBM Plex Mono", monospace';
+      ctx.fillStyle='rgba(226,232,240,.42)';
+      var sub=px(dy.hi-dy.lo)+'  ('+px(dy.lo)+' – '+px(dy.hi)+')';
+      if(ctx.measureText(sub).width > w*0.92) sub=px(dy.hi-dy.lo);            // narrow day: just the size of the range
+      if(ctx.measureText(sub).width <= w*0.92) ctx.fillText(sub, cx, cy+fs*0.72);
+    });
+    ctx.restore();
+  }
+});
 Chart.register({
   id:'measure',
   afterDraw:function(chart){

@@ -4,9 +4,17 @@ Formato de versión: `vMAYOR.REV` (ej. `v03.01`).
 
 **Organización de la carpeta:** en la carpeta principal solo queda `chart_current.html` (la versión vigente). Cada versión numerada se guarda en `backup/` (ej. `backup/chart_v03_06.html`), y `chart_current.html` es siempre una copia exacta de la última de ellas.
 
-**Versión vigente: v03.18** (`backup/chart_v03_18.html` = `chart_current.html`)
+**Versión vigente: v03.19** (`backup/chart_v03_19.html` = `chart_current.html`)
 
 > Nota sobre la numeración: hubo dos ramas en la serie v02. La rama de junio llegó a v02.31; la de septiembre/octubre se reinició desde v02.10 y llegó a v02.20. A pesar del número menor, **v02.20 es la más reciente**, y v03 parte de ella para evitar confusión.
+
+## [v03.19] - 2026-10-22
+### Agregado
+- **Rango de cada día** en la gráfica de precio: en el centro de cada día se muestra en grande **(máx − mín) / mín en %**. Debajo va el tamaño del rango y el mín – máx (si no cabe, solo el tamaño).
+  - Se calcula sobre lo que se muestra: con presets activos (por ejemplo Open + Close) usa solo esas barras.
+  - Se dibuja detrás de las velas, como marca de agua.
+  - Botón on/off **Day range %** en la barra de indicadores.
+  - No aplica a barras diarias.
 
 ## [v03.18] - 2026-10-16
 ### Cambiado
